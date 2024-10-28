@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
@@ -7,7 +7,7 @@ const FileUpload: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [content, setContent] = useState<string | ArrayBuffer | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [excelData, setExcelData] = useState<any[][]>([]); // Explicitly typed as an array of arrays
+  const [excelData, setExcelData] = useState<any[][]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,6 +58,14 @@ const FileUpload: React.FC = () => {
           setContent(null);
           setPdfUrl(url);
           setError(null);
+        } else if (file.type === 'text/plain') {
+          // Handle Notepad (.txt) files
+          setContent(result as string);
+          setError(null);
+        } else if (file.type === 'application/xml' || file.type === 'text/xml') {
+          // Handle XML files
+          setContent(result as string);
+          setError(null);
         } else {
           setContent(null);
           setError('File content is not readable.');
@@ -69,7 +77,8 @@ const FileUpload: React.FC = () => {
       reader.readAsDataURL(file); // Read as Data URL for images
     } else if (file.type === 'application/pdf') {
       reader.readAsArrayBuffer(file); // Read as ArrayBuffer for PDFs
-    } else if (file.type.startsWith('application/vnd.openxmlformats-officedocument')) {
+    } else if (file.type.startsWith('application/vnd.openxmlformats-officedocument') || 
+               file.type.startsWith('application/vnd.ms-excel')) {
       reader.readAsArrayBuffer(file); // Read as ArrayBuffer for Excel and Word
     } else {
       reader.readAsText(file); // Read as text for other types
@@ -94,8 +103,10 @@ const FileUpload: React.FC = () => {
           <h3>File Content:</h3>
           {file?.type.startsWith('image/') ? (
             <img src={content as string} alt="Uploaded" style={{ maxWidth: '100%' }} />
+          ) : file?.type.startsWith('application/vnd.openxmlformats-officedocument') ? (
+            <pre>{content.toString()}</pre> // Display for Excel
           ) : (
-            <pre>{content.toString()}</pre>
+            <pre>{content.toString()}</pre> // Display text for Notepad and XML
           )}
         </div>
       )}
