@@ -1,19 +1,22 @@
-"use client";
+"use client"
 
 import React, { useState } from 'react';
+import * as XLSX from 'xlsx';
 
 const FileUpload: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [content, setContent] = useState<string | ArrayBuffer | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [excelData, setExcelData] = useState<any[][]>([]); // Explicitly typed as an array of arrays
   const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0] || null;
     setFile(selectedFile);
-    setContent(null); // Clear content when a new file is selected
-    setError(null); // Clear error
-    setPdfUrl(null); // Clear PDF URL
+    setContent(null);
+    setError(null);
+    setPdfUrl(null);
+    setExcelData([]); // Clear previous Excel data
   };
 
   const handleUpload = () => {
@@ -29,16 +32,31 @@ const FileUpload: React.FC = () => {
 
       if (result !== undefined) {
         if (file.type.startsWith('image/')) {
-          setContent(result as string); // Result is a Data URL for images
+          setContent(result as string); // Data URL for images
           setError(null);
         } else if (file.type === 'application/pdf') {
           const blob = new Blob([result as ArrayBuffer], { type: 'application/pdf' });
           const url = URL.createObjectURL(blob);
-          setPdfUrl(url); // Set the URL for the PDF
-          setContent(null); // Clear content for non-PDF files
+          setPdfUrl(url);
+          setContent(null);
           setError(null);
-        } else if (typeof result === 'string') {
-          setContent(result);
+        } else if (file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+                   file.type === 'application/vnd.ms-excel') {
+          // Handle Excel files using SheetJS
+          const data = new Uint8Array(result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0]; // Get the first sheet name
+          const worksheet = workbook.Sheets[firstSheetName]; // Get the first sheet
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }); // Convert to JSON format
+          setExcelData(jsonData as any[][]); // Set the Excel data with explicit typing
+          setContent(null);
+          setError(null);
+        } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+                   file.type === 'application/msword') {
+          const blob = new Blob([result as ArrayBuffer], { type: file.type });
+          const url = URL.createObjectURL(blob);
+          setContent(null);
+          setPdfUrl(url);
           setError(null);
         } else {
           setContent(null);
@@ -51,6 +69,8 @@ const FileUpload: React.FC = () => {
       reader.readAsDataURL(file); // Read as Data URL for images
     } else if (file.type === 'application/pdf') {
       reader.readAsArrayBuffer(file); // Read as ArrayBuffer for PDFs
+    } else if (file.type.startsWith('application/vnd.openxmlformats-officedocument')) {
+      reader.readAsArrayBuffer(file); // Read as ArrayBuffer for Excel and Word
     } else {
       reader.readAsText(file); // Read as text for other types
     }
@@ -79,16 +99,34 @@ const FileUpload: React.FC = () => {
           )}
         </div>
       )}
+      {excelData.length > 0 && (
+        <div>
+          <h3>Excel Data:</h3>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <tbody>
+              {excelData.map((row: any[], rowIndex: number) => (
+                <tr key={rowIndex}>
+                  {row.map((cell: any, cellIndex: number) => (
+                    <td key={cellIndex} style={{ border: '1px solid black', padding: '8px' }}>
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {pdfUrl && (
         <div>
-          <h3>PDF Preview:</h3>
+          <h3>Preview:</h3>
           <iframe
             src={pdfUrl}
             width="600"
             height="400"
-            title="PDF Preview"
+            title="Document Preview"
           />
-          <button onClick={() => window.open(pdfUrl)}>Print PDF</button>
+          <button onClick={() => window.open(pdfUrl)}>Print Document</button>
         </div>
       )}
     </div>
@@ -96,6 +134,8 @@ const FileUpload: React.FC = () => {
 };
 
 export default FileUpload;
+
+
 
 
 
